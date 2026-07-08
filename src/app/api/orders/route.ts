@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
   const orderIds = orders.map(o => o.id)
   const responsibleIds = orders.map(o => o.responsible_id).filter(Boolean)
   const sectorIds = Array.from(new Set(orders.map(o => o.sector_id).filter(Boolean)))
+  const equipmentIds = Array.from(new Set(orders.map(o => (o as any).equipment_id).filter(Boolean)))
 
-  const [photosRes, unitsRes, empsRes, sectorsRes] = await Promise.all([
+  const [photosRes, unitsRes, empsRes, sectorsRes, equipmentsRes] = await Promise.all([
     admin.from('photos').select('*').in('service_order_id', orderIds),
     admin.from('units').select('id, name'),
     responsibleIds.length > 0
@@ -37,6 +38,9 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] }),
     sectorIds.length > 0
       ? admin.from('sectors').select('id, name').in('id', sectorIds)
+      : Promise.resolve({ data: [] }),
+    equipmentIds.length > 0
+      ? admin.from('equipments').select('id, name, tag, category').in('id', equipmentIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -49,11 +53,15 @@ export async function GET(req: NextRequest) {
   const sectorMap: Record<string, string> = {}
   ;((sectorsRes as any).data || []).forEach((s: any) => { sectorMap[s.id] = s.name })
 
+  const equipmentMap: Record<string, { name: string; tag?: string; category?: string }> = {}
+  ;((equipmentsRes as any).data || []).forEach((e: any) => { equipmentMap[e.id] = { name: e.name, tag: e.tag, category: e.category } })
+
   const enriched = orders.map(o => ({
     ...o,
     units: { name: unitsMap[o.unit_id] || '—' },
     employees: o.responsible_id ? { name: empMap[o.responsible_id] || '—' } : null,
     sectors: o.sector_id ? { name: sectorMap[o.sector_id] || '—' } : null,
+    equipments: (o as any).equipment_id ? equipmentMap[(o as any).equipment_id] || null : null,
     photos: (photosRes.data || []).filter((p: any) => p.service_order_id === o.id),
   }))
 

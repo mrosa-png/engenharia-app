@@ -63,7 +63,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null
 }
 
-type Tab = 'dashboard' | 'dados' | 'indicadores'
+type Tab = 'dashboard' | 'dados' | 'indicadores' | 'confiabilidade'
 
 // ── Modal de fotos por fase ──────────────────────────────────────────────────
 function PhotoModal({ order, onClose }: { order: ServiceOrder; onClose: () => void }) {
@@ -237,10 +237,40 @@ export default function DashboardPage() {
     // Top days
     const topDias = [...byDay].sort((a, b) => b.os - a.os).slice(0, 10)
 
+    // ── MTTR por equipamento (só OS CORRETIVA com equipamento e horário completo) ──
+    const correctiveWithEq = orders.filter(o =>
+      o.activity_type === 'CORRETIVA' && o.equipment_id && o.start_time && o.end_time
+    )
+    const mttrMap: Record<string, { name: string; tag?: string | null; durations: number[]; dates: string[] }> = {}
+    correctiveWithEq.forEach(o => {
+      const eqId = o.equipment_id!
+      const eqName = (o.equipments as any)?.name || eqId
+      const eqTag = (o.equipments as any)?.tag
+      if (!mttrMap[eqId]) mttrMap[eqId] = { name: eqName, tag: eqTag, durations: [], dates: [] }
+      mttrMap[eqId].durations.push(calcHours(o.start_time, o.end_time))
+      mttrMap[eqId].dates.push(o.activity_date)
+    })
+    const mttrData = Object.entries(mttrMap).map(([, v]) => {
+      const avgMttr = v.durations.reduce((a, b) => a + b, 0) / v.durations.length
+      // MTBF: (última falha - primeira falha) / (n-1) em dias
+      const sortedDates = [...v.dates].sort()
+      let mtbf: number | null = null
+      if (sortedDates.length >= 2) {
+        const diffDays = (new Date(sortedDates[sortedDates.length - 1]).getTime() - new Date(sortedDates[0]).getTime()) / 86400000
+        mtbf = Math.round((diffDays / (sortedDates.length - 1)) * 10) / 10
+      }
+      return {
+        name: v.tag ? `[${v.tag}] ${v.name}` : v.name,
+        falhas: v.durations.length,
+        mttr: Math.round(avgMttr * 10) / 10,
+        mtbf,
+      }
+    }).sort((a, b) => b.falhas - a.falhas)
+
     return {
       totalOS, totalHoras: Math.round(totalHoras * 10) / 10, mediaHoras: Math.round(mediaHoras * 10) / 10,
       epiOk, epiPct, diasAtivos, mediaPorDia: Math.round(mediaPorDia * 100) / 100,
-      byDisciplina, byEquipe, byAtividade, byDay, topDias,
+      byDisciplina, byEquipe, byAtividade, byDay, topDias, mttrData,
     }
   }, [orders])
 
@@ -265,6 +295,7 @@ export default function DashboardPage() {
     { key: 'dashboard', label: '📊 Dashboard' },
     { key: 'dados', label: '📋 Base de Dados' },
     { key: 'indicadores', label: '🏆 Indicadores' },
+    { key: 'confiabilidade', label: '⚙️ Confiabilidade' },
   ]
 
   return (
@@ -781,6 +812,133 @@ export default function DashboardPage() {
                 <li>4. Inclua prazo previsto e data de conclusão nas próximas OS para calcular cumprimento de prazo e pendências.</li>
               </ul>
             </div>
+          </>
+        )}
+
+        {/* ════════ TAB 4: CONFIABILIDADE ════════ */}
+        {activeTab === 'confiabilidade' && (
+          <>
+            {/* Explicação */}
+            <div className="card bg-teal-50 border border-teal-100">
+              <h2 className="font-semibold mb-1" style={{ color: '#0d7070' }}>⚙️ Indicadores de Confiabilidade</h2>
+              <p className="text-sm text-teal-700">
+                Calculados a partir de OS do tipo <strong>CORRETIVA</strong> com equipamento vinculado.
+                Cadastre equipamentos no Painel Admin e vincule-os nas OS para começar.
+              </p>
+              <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+                <div className="bg-white rounded-xl p-3 border border-teal-200">
+                  <p className="font-semibold text-gray-700">MTTR — Mean Time To Repair</p>
+                  <p className="text-gray-500 text-xs mt-1">Tempo médio de reparo por equipamento. Quanto menor, mais eficiente é a manutenção corretiva.</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-teal-200">
+                  <p className="font-semibold text-gray-700">MTBF — Mean Time Between Failures</p>
+                  <p className="text-gray-500 text-xs mt-1">Tempo médio entre falhas do mesmo equipamento. Quanto maior, mais confiável o equipamento.</p>
+                </div>
+              </div>
+            </div>
+
+            {analytics.mttrData.length === 0 ? (
+              <div className="card text-center py-12 text-gray-400">
+                <p className="text-4xl mb-3">⚙️</p>
+                <p className="font-medium text-gray-600 mb-1">Nenhum dado disponível ainda</p>
+                <p className="text-sm">Para ver MTTR e MTBF: cadastre equipamentos no Admin, vincule-os nas OS corretivas e preencha o horário de início e fim.</p>
+              </div>
+            ) : (
+              <>
+                {/* Tabela MTTR / MTBF */}
+                <div className="card overflow-hidden">
+                  <h2 className="font-semibold text-gray-700 mb-4">MTTR e MTBF por Equipamento</h2>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                        <th className="px-4 py-2 text-gray-600 font-semibold">Equipamento</th>
+                        <th className="px-4 py-2 text-gray-600 font-semibold text-center">Falhas</th>
+                        <th className="px-4 py-2 font-semibold text-center" style={{ color: '#ef4444' }}>MTTR (horas)</th>
+                        <th className="px-4 py-2 font-semibold text-center" style={{ color: '#0d7070' }}>MTBF (dias)</th>
+                        <th className="px-4 py-2 text-gray-600 font-semibold text-center">Situação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.mttrData.map((eq, i) => (
+                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{eq.name}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-red-600">{eq.falhas}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`font-bold text-base ${eq.mttr <= 2 ? 'text-green-600' : eq.mttr <= 4 ? 'text-amber-600' : 'text-red-600'}`}>
+                              {fmt(eq.mttr)}h
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {eq.mtbf !== null ? (
+                              <span className={`font-bold text-base ${eq.mtbf >= 30 ? 'text-green-600' : eq.mtbf >= 7 ? 'text-amber-600' : 'text-red-600'}`}>
+                                {fmt(eq.mtbf)} dias
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Insuficiente<br/>(mín. 2 falhas)</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`badge text-xs ${
+                              eq.mtbf !== null && eq.mtbf >= 30 && eq.mttr <= 2
+                                ? 'bg-green-100 text-green-700'
+                                : eq.mtbf !== null && eq.mtbf < 7
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {eq.mtbf !== null && eq.mtbf >= 30 && eq.mttr <= 2
+                                ? '✓ Bom'
+                                : eq.mtbf !== null && eq.mtbf < 7
+                                ? '⚠ Crítico'
+                                : '~ Atenção'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Gráfico MTTR */}
+                <div className="card">
+                  <h2 className="font-semibold text-gray-700 mb-4">MTTR por Equipamento (horas médias de reparo)</h2>
+                  <ResponsiveContainer width="100%" height={Math.max(160, analytics.mttrData.length * 48 + 40)}>
+                    <BarChart data={analytics.mttrData} layout="vertical" margin={{ left: 8, right: 60, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} unit="h" />
+                      <YAxis type="category" dataKey="name" width={200} tick={{ fontSize: 10 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend verticalAlign="bottom" height={36} />
+                      <Bar dataKey="mttr" name="MTTR (h)" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={18} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                    Barras vermelhas = tempo médio de reparo. Barras menores indicam equipe mais ágil na resolução de falhas.
+                  </p>
+                </div>
+
+                {/* Gráfico MTBF */}
+                {analytics.mttrData.some(e => e.mtbf !== null) && (
+                  <div className="card">
+                    <h2 className="font-semibold text-gray-700 mb-4">MTBF por Equipamento (dias entre falhas)</h2>
+                    <ResponsiveContainer width="100%" height={Math.max(160, analytics.mttrData.filter(e => e.mtbf !== null).length * 48 + 40)}>
+                      <BarChart
+                        data={analytics.mttrData.filter(e => e.mtbf !== null)}
+                        layout="vertical" margin={{ left: 8, right: 60, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} unit="d" />
+                        <YAxis type="category" dataKey="name" width={200} tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend verticalAlign="bottom" height={36} />
+                        <Bar dataKey="mtbf" name="MTBF (dias)" fill="#0d7070" radius={[0, 4, 4, 0]} barSize={18} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                      Barras maiores = equipamento mais confiável (mais tempo entre falhas). Barras pequenas indicam equipamentos críticos que precisam de atenção.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>

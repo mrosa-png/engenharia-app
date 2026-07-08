@@ -43,6 +43,36 @@ export interface Sector {
   units?: Unit
 }
 
+export type EquipmentCategory =
+  | 'Bomba'
+  | 'Compressor'
+  | 'Motor'
+  | 'Válvula'
+  | 'Painel Elétrico'
+  | 'Transportador'
+  | 'Caldeira/Vaso'
+  | 'Instrumento'
+  | 'Estrutura/Civil'
+  | 'Outro'
+
+export const EQUIPMENT_CATEGORIES: EquipmentCategory[] = [
+  'Bomba', 'Compressor', 'Motor', 'Válvula', 'Painel Elétrico',
+  'Transportador', 'Caldeira/Vaso', 'Instrumento', 'Estrutura/Civil', 'Outro',
+]
+
+export interface Equipment {
+  id: string
+  unit_id: string
+  sector_id?: string | null
+  name: string
+  tag?: string | null
+  category?: EquipmentCategory | null
+  active: boolean
+  created_at: string
+  units?: Unit
+  sectors?: Sector
+}
+
 export interface Profile {
   id: string
   full_name: string
@@ -82,6 +112,8 @@ export interface ServiceOrder {
   unit_id: string
   sector_id?: string | null
   sectors?: Sector
+  equipment_id?: string | null
+  equipments?: Equipment
   activity_type: ActivityType
   service_type: ServiceType
   detailed_service_type?: DetailedServiceType | null

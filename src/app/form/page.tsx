@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import {
   ACTIVITY_TYPES, SERVICE_TYPES, DETAILED_SERVICE_TYPES,
   OS_STATUSES, OS_PRIORITIES,
-  Employee, Profile, Unit, Sector, Photo, OSStatus, OSPriority,
+  Employee, Profile, Unit, Sector, Equipment, Photo, OSStatus, OSPriority,
 } from '@/lib/types'
 import Image from 'next/image'
 
@@ -25,6 +25,9 @@ function FormContent() {
   const [sectors, setSectors] = useState<Sector[]>([])
   const [allSectors, setAllSectors] = useState<Sector[]>([])
   const [sectorId, setSectorId] = useState('')
+  const [equipments, setEquipments] = useState<Equipment[]>([])
+  const [allEquipments, setAllEquipments] = useState<Equipment[]>([])
+  const [equipmentId, setEquipmentId] = useState('')
   const [selectedUnitId, setSelectedUnitId] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -58,9 +61,11 @@ function FormContent() {
       if (!prof) { router.push('/login'); return }
       setProfile(prof)
 
-      // Carrega setores para todos os roles
+      // Carrega setores e equipamentos para todos os roles
       const { data: allSec } = await supabase.from('sectors').select('*').eq('active', true).order('name')
       setAllSectors(allSec || [])
+      const { data: allEq } = await supabase.from('equipments').select('*').eq('active', true).order('name')
+      setAllEquipments(allEq || [])
 
       if (prof.role === 'encarregado') {
         setSelectedUnitId(prof.unit_id || '')
@@ -69,6 +74,7 @@ function FormContent() {
           .eq('unit_id', prof.unit_id).eq('active', true).order('name')
         setEmployees(emps || [])
         setSectors((allSec || []).filter(s => s.unit_id === prof.unit_id))
+        setEquipments((allEq || []).filter(e => e.unit_id === prof.unit_id))
       } else {
         const { data: unitList } = await supabase.from('units').select('*').eq('active', true).order('name')
         setUnits(unitList || [])
@@ -94,6 +100,7 @@ function FormContent() {
           setEpiUsed(os.epi_used ?? null)
           setSelectedUnitId(os.unit_id || '')
           setSectorId(os.sector_id || '')
+          setEquipmentId(os.equipment_id || '')
           setExistingPhotos(os.photos || [])
           const collabIds = (os.service_order_collaborators || []).map((c: any) => c.employee_id)
           setCollaboratorIds(collabIds)
@@ -110,7 +117,8 @@ function FormContent() {
     if (profile?.role !== 'encarregado' && selectedUnitId) {
       setEmployees(allEmployees.filter(e => e.unit_id === selectedUnitId))
       setSectors(allSectors.filter(s => s.unit_id === selectedUnitId))
-      if (!isEdit) { setResponsibleId(''); setCollaboratorIds([]); setSectorId('') }
+      setEquipments(allEquipments.filter(e => e.unit_id === selectedUnitId))
+      if (!isEdit) { setResponsibleId(''); setCollaboratorIds([]); setSectorId(''); setEquipmentId('') }
     }
   }, [selectedUnitId, allEmployees, allSectors, profile, isEdit])
 
@@ -167,6 +175,7 @@ function FormContent() {
           service_type: serviceType,
           detailed_service_type: detailedServiceType || null,
           sector_id: sectorId || null,
+          equipment_id: equipmentId || null,
           status,
           priority,
           end_time: endTime || null,
@@ -195,6 +204,7 @@ function FormContent() {
         .insert({
           unit_id: profile.role === 'encarregado' ? profile.unit_id : selectedUnitId,
           sector_id: sectorId || null,
+          equipment_id: equipmentId || null,
           activity_type: activityType,
           service_type: serviceType,
           detailed_service_type: detailedServiceType || null,
@@ -386,6 +396,22 @@ function FormContent() {
               <option value="">Selecione o setor (opcional)...</option>
               {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+          </div>
+        )}
+
+        {/* Equipamento */}
+        {equipments.length > 0 && (
+          <div className="card">
+            <label className="label">⚙️ Equipamento</label>
+            <select className="input" value={equipmentId} onChange={e => setEquipmentId(e.target.value)}>
+              <option value="">Selecione o equipamento (opcional)...</option>
+              {equipments.map(eq => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.tag ? `[${eq.tag}] ` : ''}{eq.name}{eq.category ? ` — ${eq.category}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Necessário para calcular MTTR e MTBF</p>
           </div>
         )}
 

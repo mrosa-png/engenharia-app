@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Campos permitidos para atualização
   const allowed = [
     'end_time', 'status', 'priority', 'detailed_service_type',
-    'sector_id', 'description', 'epi_used', 'activity_type', 'service_type',
+    'sector_id', 'equipment_id', 'description', 'epi_used', 'activity_type', 'service_type',
   ]
   const updates: Record<string, any> = {}
   for (const key of allowed) {

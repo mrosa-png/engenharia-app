@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Profile, Employee, Unit, Sector } from '@/lib/types'
+import { Profile, Employee, Unit, Sector, Equipment, EQUIPMENT_CATEGORIES } from '@/lib/types'
 import Image from 'next/image'
 
-type Tab = 'employees' | 'users' | 'units' | 'sectors'
+type Tab = 'employees' | 'users' | 'units' | 'sectors' | 'equipments'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -18,10 +18,13 @@ export default function AdminPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [sectors, setSectors] = useState<Sector[]>([])
+  const [equipments, setEquipments] = useState<Equipment[]>([])
 
   const [newEmployee, setNewEmployee] = useState({ name: '', unit_id: '' })
   const [newUnit, setNewUnit] = useState('')
   const [newSector, setNewSector] = useState({ name: '', unit_id: '' })
+  const [newEquipment, setNewEquipment] = useState({ name: '', tag: '', unit_id: '', sector_id: '', category: '' })
+  const [eqFilterUnit, setEqFilterUnit] = useState('')
   const [newUser, setNewUser] = useState({ email: '', full_name: '', role: 'encarregado', unit_id: '', password: '' })
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
@@ -36,7 +39,7 @@ export default function AdminPage() {
       const { data: prof } = await supabase.from('profiles').select('*, units(*)').eq('id', user.id).single()
       if (!prof || prof.role !== 'super_admin') { router.push('/dashboard'); return }
       setProfile(prof)
-      await Promise.all([fetchUnits(), fetchEmployees(), fetchUsers(), fetchSectors()])
+      await Promise.all([fetchUnits(), fetchEmployees(), fetchUsers(), fetchSectors(), fetchEquipments()])
       setLoading(false)
     }
     load()
@@ -57,6 +60,10 @@ export default function AdminPage() {
   async function fetchSectors() {
     const { data } = await supabase.from('sectors').select('*, units(name)').order('name')
     setSectors(data || [])
+  }
+  async function fetchEquipments() {
+    const { data } = await supabase.from('equipments').select('*, units(name), sectors(name)').order('name')
+    setEquipments(data || [])
   }
 
   function flash(ok: boolean, text: string) {
@@ -119,6 +126,31 @@ export default function AdminPage() {
     fetchSectors()
   }
 
+  // ── Equipments ──
+  async function addEquipment(e: React.FormEvent) {
+    e.preventDefault()
+    const { error } = await supabase.from('equipments').insert({
+      name: newEquipment.name.trim(),
+      tag: newEquipment.tag.trim() || null,
+      unit_id: newEquipment.unit_id,
+      sector_id: newEquipment.sector_id || null,
+      category: newEquipment.category || null,
+    })
+    if (error) { flash(false, 'Erro ao adicionar equipamento.'); return }
+    flash(true, 'Equipamento cadastrado!')
+    setNewEquipment(p => ({ ...p, name: '', tag: '' }))
+    fetchEquipments()
+  }
+  async function toggleEquipment(eq: Equipment) {
+    await supabase.from('equipments').update({ active: !eq.active }).eq('id', eq.id)
+    fetchEquipments()
+  }
+  async function deleteEquipment(id: string) {
+    if (!confirm('Remover equipamento? OS vinculadas perderão o vínculo.')) return
+    await supabase.from('equipments').delete().eq('id', id)
+    fetchEquipments()
+  }
+
   // ── Users ──
   async function addUser(e: React.FormEvent) {
     e.preventDefault()
@@ -152,6 +184,7 @@ export default function AdminPage() {
     { key: 'users', label: 'Usuários do Sistema' },
     { key: 'units', label: 'Unidades' },
     { key: 'sectors', label: 'Setores' },
+    { key: 'equipments', label: '⚙️ Equipamentos' },
   ]
 
   return (
@@ -463,6 +496,125 @@ export default function AdminPage() {
                   Nenhum setor cadastrado ainda. Adicione o primeiro acima.
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── EQUIPAMENTOS ── */}
+        {tab === 'equipments' && (
+          <div className="space-y-6">
+            <div className="card">
+              <h2 className="font-semibold text-gray-700 mb-4">Cadastrar Equipamento</h2>
+              <form onSubmit={addEquipment} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Unidade <span className="text-red-500">*</span></label>
+                    <select className="input" value={newEquipment.unit_id}
+                      onChange={e => { setNewEquipment(p => ({ ...p, unit_id: e.target.value, sector_id: '' })); setEqFilterUnit(e.target.value) }}
+                      required>
+                      <option value="">Selecione...</option>
+                      {units.filter(u => u.active).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Setor</label>
+                    <select className="input" value={newEquipment.sector_id}
+                      onChange={e => setNewEquipment(p => ({ ...p, sector_id: e.target.value }))}>
+                      <option value="">Sem setor</option>
+                      {sectors.filter(s => s.unit_id === newEquipment.unit_id && s.active).map(s =>
+                        <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Nome do Equipamento <span className="text-red-500">*</span></label>
+                    <input className="input" placeholder="Ex: Bomba de Recalque" value={newEquipment.name}
+                      onChange={e => setNewEquipment(p => ({ ...p, name: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <label className="label">TAG / Código</label>
+                    <input className="input" placeholder="Ex: B-101" value={newEquipment.tag}
+                      onChange={e => setNewEquipment(p => ({ ...p, tag: e.target.value }))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Categoria</label>
+                  <select className="input" value={newEquipment.category}
+                    onChange={e => setNewEquipment(p => ({ ...p, category: e.target.value }))}>
+                    <option value="">Selecione a categoria...</option>
+                    {EQUIPMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <button type="submit" className="btn-primary">Cadastrar Equipamento</button>
+              </form>
+            </div>
+
+            {/* Filtro por unidade */}
+            <div className="flex gap-3 items-center">
+              <label className="label mb-0">Filtrar por unidade:</label>
+              <select className="input w-52" value={eqFilterUnit} onChange={e => setEqFilterUnit(e.target.value)}>
+                <option value="">Todas</option>
+                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+              <span className="text-sm text-gray-400 ml-auto">
+                {equipments.filter(eq => !eqFilterUnit || eq.unit_id === eqFilterUnit).length} equipamentos
+              </span>
+            </div>
+
+            {/* Lista de equipamentos */}
+            <div className="card overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                    <th className="px-4 py-2 text-gray-600 font-semibold">Equipamento</th>
+                    <th className="px-4 py-2 text-gray-600 font-semibold">TAG</th>
+                    <th className="px-4 py-2 text-gray-600 font-semibold">Categoria</th>
+                    <th className="px-4 py-2 text-gray-600 font-semibold">Unidade / Setor</th>
+                    <th className="px-4 py-2 text-gray-600 font-semibold">Status</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {equipments
+                    .filter(eq => !eqFilterUnit || eq.unit_id === eqFilterUnit)
+                    .map(eq => (
+                      <tr key={eq.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-medium text-gray-800">{eq.name}</td>
+                        <td className="px-4 py-2">
+                          {eq.tag
+                            ? <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{eq.tag}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-2 text-gray-500 text-xs">{eq.category || '—'}</td>
+                        <td className="px-4 py-2 text-gray-500 text-xs">
+                          {(eq.units as any)?.name || '—'}
+                          {(eq.sectors as any)?.name && <span className="text-gray-400"> / {(eq.sectors as any).name}</span>}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className={`badge text-xs ${eq.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                            {eq.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 flex gap-2 justify-end">
+                          <button onClick={() => toggleEquipment(eq)} className="text-xs text-blue-600 hover:underline">
+                            {eq.active ? 'Desativar' : 'Ativar'}
+                          </button>
+                          <button onClick={() => deleteEquipment(eq.id)} className="text-xs text-red-500 hover:underline">
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  {equipments.filter(eq => !eqFilterUnit || eq.unit_id === eqFilterUnit).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                        Nenhum equipamento cadastrado ainda.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
