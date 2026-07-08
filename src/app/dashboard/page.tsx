@@ -310,18 +310,21 @@ export default function DashboardPage() {
                 {analytics.byDisciplina.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={analytics.byDisciplina} layout="vertical" margin={{ left: 8, right: 48 }}>
+                  <ResponsiveContainer width="100%" height={Math.max(280, analytics.byDisciplina.length * 40)}>
+                    <BarChart data={analytics.byDisciplina} layout="vertical" margin={{ left: 8, right: 60, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 10 }} />
+                      <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend />
+                      <Legend verticalAlign="bottom" height={36} />
                       <Bar dataKey="os" name="OS" fill="#3b82f6" radius={[0, 3, 3, 0]} barSize={12} />
                       <Bar dataKey="horas" name="Horas" fill="#10b981" radius={[0, 3, 3, 0]} barSize={12} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
+                <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                  Compara quantidade de OS e horas totais por tipo de serviço (disciplina). Identifica qual área concentra mais demanda e esforço.
+                </p>
               </div>
 
               {/* Tipo de Atividade - Pie */}
@@ -330,24 +333,25 @@ export default function DashboardPage() {
                 {analytics.byAtividade.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
                       <Pie
                         data={analytics.byAtividade}
                         dataKey="value"
                         nameKey="name"
-                        cx="50%" cy="45%"
-                        outerRadius={100}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
+                        cx="50%" cy="42%"
+                        outerRadius={95}
                       >
                         {analytics.byAtividade.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend />
+                      <Legend verticalAlign="bottom" height={48} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
+                <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                  Proporção entre Corretiva, Preventiva, Melhoria e outros tipos. Ideal: maior fatia em Preventiva indica manutenção proativa.
+                </p>
               </div>
             </div>
 
@@ -357,18 +361,21 @@ export default function DashboardPage() {
               {analytics.byEquipe.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
               ) : (
-                <ResponsiveContainer width="100%" height={Math.max(200, analytics.byEquipe.length * 52)}>
-                  <BarChart data={analytics.byEquipe} layout="vertical" margin={{ left: 8, right: 48 }}>
+                <ResponsiveContainer width="100%" height={Math.max(220, analytics.byEquipe.length * 52 + 40)}>
+                  <BarChart data={analytics.byEquipe} layout="vertical" margin={{ left: 8, right: 60, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend />
+                    <Legend verticalAlign="bottom" height={36} />
                     <Bar dataKey="os" name="OS" fill="#8b5cf6" radius={[0, 3, 3, 0]} barSize={14} />
                     <Bar dataKey="horas" name="Horas" fill="#f59e0b" radius={[0, 3, 3, 0]} barSize={14} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
+              <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                Quantidade de OS e horas totais por responsável. Permite identificar sobrecarga de trabalho ou distribuição desigual entre equipes.
+              </p>
             </div>
 
             {/* Row 3: Timeline */}
@@ -377,19 +384,22 @@ export default function DashboardPage() {
               {analytics.byDay.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
               ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <ComposedChart data={analytics.byDay}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={analytics.byDay} margin={{ bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                     <YAxis yAxisId="os" allowDecimals={false} tick={{ fontSize: 11 }} />
                     <YAxis yAxisId="h" orientation="right" tick={{ fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend />
+                    <Legend verticalAlign="bottom" height={36} />
                     <Area yAxisId="h" type="monotone" dataKey="horas" name="Horas" fill="#bfdbfe" stroke="#3b82f6" strokeWidth={1.5} />
                     <Line yAxisId="os" type="monotone" dataKey="os" name="OS" stroke="#ef4444" strokeWidth={2} dot={{ r: 4, fill: '#ef4444' }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
+              <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                Linha vermelha = número de OS por dia (eixo esquerdo). Área azul = horas trabalhadas (eixo direito). Picos indicam dias de maior demanda operacional.
+              </p>
             </div>
           </>
         )}
@@ -441,10 +451,13 @@ export default function DashboardPage() {
                         <td className="px-2 py-2">
                           <button
                             onClick={() => router.push(`/form?id=${order.id}`)}
-                            className="text-blue-500 hover:text-blue-700 text-xs font-medium whitespace-nowrap px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                            className="text-xs font-medium whitespace-nowrap px-2 py-1 rounded transition-colors border"
+                            style={{ color: '#0d7070', borderColor: '#0d7070', backgroundColor: 'transparent' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f0fafa')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             title="Editar OS"
                           >
-                            ✏️
+                            ✏️ Editar
                           </button>
                         </td>
                         <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
@@ -622,18 +635,19 @@ export default function DashboardPage() {
                 {analytics.byDisciplina.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
-                      <Pie data={analytics.byDisciplina} dataKey="os" nameKey="name" cx="50%" cy="45%" outerRadius={90}
-                        label={({ name, percent }) => `${name.length > 14 ? name.slice(0, 13) + '…' : name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}>
+                      <Pie data={analytics.byDisciplina} dataKey="os" nameKey="name" cx="50%" cy="40%" outerRadius={90}>
                         {analytics.byDisciplina.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend />
+                      <Legend verticalAlign="bottom" height={56} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
+                <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                  Percentual de OS por disciplina. Fatias maiores indicam as áreas com maior volume de serviços no período.
+                </p>
               </div>
 
               {/* Pie por Equipe */}
@@ -642,46 +656,51 @@ export default function DashboardPage() {
                 {analytics.byEquipe.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
-                      <Pie data={analytics.byEquipe} dataKey="os" nameKey="name" cx="50%" cy="45%" outerRadius={90}
-                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                      <Pie data={analytics.byEquipe} dataKey="os" nameKey="name" cx="50%" cy="40%" outerRadius={90}>
                         {analytics.byEquipe.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend />
+                      <Legend verticalAlign="bottom" height={56} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
+                <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                  Proporção de OS por responsável. Equilíbrio entre as fatias indica boa distribuição de carga de trabalho.
+                </p>
               </div>
             </div>
 
             {/* Produtividade */}
             <div className="card">
               <h2 className="font-semibold text-gray-700 mb-2">Produtividade por Responsável</h2>
-              <p className="text-xs text-gray-400 mb-4">Horas médias por OS (quanto maior, mais horas dedicadas por ordem)</p>
               {analytics.byEquipe.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-8">Sem dados no período</p>
               ) : (
-                <ResponsiveContainer width="100%" height={Math.max(150, analytics.byEquipe.length * 40)}>
+                <ResponsiveContainer width="100%" height={Math.max(160, analytics.byEquipe.length * 44 + 40)}>
                   <BarChart
                     data={analytics.byEquipe.map(e => ({
                       name: e.name,
                       'h/OS': e.os > 0 ? Math.round((e.horas / e.os) * 10) / 10 : 0,
                     }))}
                     layout="vertical"
-                    margin={{ left: 8, right: 40 }}
+                    margin={{ left: 8, right: 60, bottom: 20 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} unit="h" />
-                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 11 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="h/OS" name="Horas médias/OS" radius={[0, 4, 4, 0]} barSize={18}>
+                    <Legend verticalAlign="bottom" height={36} />
+                    <Bar dataKey="h/OS" name="Horas médias por OS" radius={[0, 4, 4, 0]} barSize={18}>
                       {analytics.byEquipe.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               )}
+              <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-2">
+                Média de horas gastas por ordem de serviço, por responsável. Valores altos podem indicar OS complexas ou necessidade de suporte adicional.
+              </p>
             </div>
 
             {/* Análise gerencial */}

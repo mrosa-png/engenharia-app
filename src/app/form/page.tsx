@@ -31,6 +31,7 @@ function FormContent() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [existingPhotos, setExistingPhotos] = useState<Photo[]>([])
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null)
 
   // Campos do formulário
   const [activityType, setActivityType] = useState('')
@@ -209,6 +210,7 @@ function FormContent() {
         )
       }
       await uploadPhotos(order.id)
+      setCreatedOrderId(order.id)
       setSuccess(true)
     }
     setSubmitting(false)
@@ -250,6 +252,15 @@ function FormContent() {
             {isEdit ? 'Ordem de serviço atualizada com sucesso.' : 'Ordem de serviço salva com sucesso.'}
           </p>
           <div className="flex flex-col gap-3">
+            {!isEdit && createdOrderId && (
+              <button
+                className="w-full py-2 px-4 rounded-lg font-medium text-sm text-white"
+                style={{ backgroundColor: '#0d7070' }}
+                onClick={() => router.push(`/form?id=${createdOrderId}`)}
+              >
+                ✏️ Editar esta OS (adicionar fotos / encerrar)
+              </button>
+            )}
             {!isEdit && (
               <button className="btn-primary w-full" onClick={resetForm}>
                 Registrar Nova OS
