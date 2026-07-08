@@ -65,6 +65,60 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 type Tab = 'dashboard' | 'dados' | 'indicadores'
 
+// ── Modal de fotos por fase ──────────────────────────────────────────────────
+function PhotoModal({ order, onClose }: { order: ServiceOrder; onClose: () => void }) {
+  const phases = [
+    { key: 'antes',   label: '🟢 Início do Serviço' },
+    { key: 'durante', label: '🔵 Em Execução' },
+    { key: 'depois',  label: '✅ Finalização' },
+  ] as const
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <div>
+            <p className="font-semibold text-gray-800">Fotos da OS</p>
+            <p className="text-xs text-gray-400">
+              {order.units?.name} · {new Date(order.activity_date + 'T00:00:00').toLocaleDateString('pt-BR')} · {order.service_type}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2">×</button>
+        </div>
+
+        <div className="p-4 space-y-5">
+          {phases.map(({ key, label }) => {
+            const phasPhotos = (order.photos || []).filter((p: any) => p.photo_type === key)
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="font-semibold text-sm text-gray-700">{label}</p>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{phasPhotos.length} foto{phasPhotos.length !== 1 ? 's' : ''}</span>
+                </div>
+                {phasPhotos.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic py-2">Nenhuma foto registrada nesta fase.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {phasPhotos.map((p: any, i: number) => (
+                      <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                        className="block rounded-xl overflow-hidden border border-gray-200 hover:shadow-md transition-shadow" style={{ aspectRatio: '1' }}>
+                        <img src={p.url} alt={`${label} ${i + 1}`} className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -76,6 +130,7 @@ export default function DashboardPage() {
   const [units, setUnits] = useState<{ id: string; name: string }[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [searchDados, setSearchDados] = useState('')
+  const [photoOrder, setPhotoOrder] = useState<ServiceOrder | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -501,7 +556,20 @@ export default function DashboardPage() {
                             {order.epi_used ? 'SIM' : 'NÃO'}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-gray-500 text-center">{order.photos?.length || 0}</td>
+                        <td className="px-3 py-2 text-center">
+                          {(order.photos?.length || 0) > 0 ? (
+                            <button
+                              onClick={() => setPhotoOrder(order)}
+                              className="text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
+                              style={{ color: '#0d7070', backgroundColor: '#f0fafa' }}
+                              title="Ver fotos"
+                            >
+                              📷 {order.photos?.length}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
                       </tr>
                     )
                   })}
@@ -716,6 +784,9 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Modal de visualização de fotos por fase */}
+      {photoOrder && <PhotoModal order={photoOrder} onClose={() => setPhotoOrder(null)} />}
     </div>
   )
 }
